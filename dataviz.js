@@ -7,99 +7,70 @@ var countByDateBarChart;
 var dataTable;
 
 // load the data file
-d3.csv("data/PPR-mini.csv", function(houseSales) {
+d3.csv("data/ppr-hans.csv", function(unhcrstats) {
 
 	// associate the charts with their html elements
 	yearRowChart = dc.rowChart("#chart-ring-years");
 	monthRowChart = dc.rowChart("#chart-row-months");
 	dayRowChart = dc.rowChart("#chart-row-days");
 	bubbleChart = dc.bubbleChart("#chart-bubble-counties");
-	countByDateBarChart = dc.barChart("#chart-line-date-count");
-	dataTable = dc.dataTable("#raw-data-table");
-	
-	// we'll need to display month names rather than 0-based index values
-	var monthNames = [
-			"January", "February", "March", "April", "May", "June",
-			"July", "August", "September", "October", "November", "December"
-	];
 
-	// we'll need to display day names rather than 0-based index values
-	var dayNames = [
-			"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-	];
-		
+	// we'll need to display month names rather than 0-based index values
+
 	// normalise the data
-	houseSales.forEach(function(houseSale) {
-		// remove the euro symbol and convert to a number
-		houseSale.price = +houseSale.price.replace(/[^\d.]/g, "");
-		
-		// gah, date manpulation ... 
-		houseSale.dateAsString = houseSale.date;
-		var dateParts = houseSale.date.split("/");
-		houseSale.date = new Date(dateParts[2], (dateParts[1] - 1), dateParts[0]);
-		houseSale.year = houseSale.date.getFullYear();
-		// prepend each name with its position to aid sorting in the bar charts below
-		houseSale.monthName = houseSale.date.getMonth() + '.' + monthNames[houseSale.date.getMonth()];
-		houseSale.dayName = houseSale.date.getDay() + '.' + dayNames[houseSale.date.getDay()];
-	});
 
 	// use cross filter to create the dimensions and grouping
-	var ppr = crossfilter(houseSales);
+	var ppr = crossfilter(unhcrstats);
 	
 	var yearDim = ppr.dimension(function(d) {
-			return d.year;
+			return d.access;
 		});
 	
 	var countPerYear = yearDim.group().reduceCount();
 
 	var	dayDim = ppr.dimension(function(d) {
-			return d.dayName;
+			return d.ccenter;
 		});
 		
 	var countPerDay = dayDim.group().reduceCount();
 
 	var	monthDim = ppr.dimension(function(d) {
-			return d.monthName;
+			return d.budget;
 		});
 		
 	var	countPerMonth = monthDim.group().reduceCount();
 
 	var	countyDim = ppr.dimension(function(d) {
-			return d.county;
+			return d.x;
 		});
+
 		
 	var	countyDimGroup = countyDim.group().reduce(
-			// add
-			function(p, v) {
-				++p.count;
-				p.sum += v.price;
-				p.avg = p.sum / p.count;
-				return p;
-			},
-			// remove
-			function(p, v) {
-				--p.count;
-				p.sum -= v.price;
-				p.avg = p.sum / p.count;
-				return p;
-			},
-			// init
-			function(p, v) {
-				return {
-					count: 0,
-					sum: 0,
-					avg: 0,
-				};
-			}
-		);
+    function(p, v) {
+        ++p.count;
+        p.label = v.location;
+        p.bubble = v.bubble;
+        p.x = v.x;
+        p.y = v.y;
+        
+        return p;
+    },
+    function(p, v) {
+        --p.count;
+        p.bubble = 0;
+        p.label = "";
+        p.x = 0;
+        p.y = 0;
+        
+        return p;
+    }, function() {
+        return { count: 0, x: 0, y:0, label: "" };
+    });
+var minDate = countyDim.bottom(1)[0];
+var maxDate = countyDim.top(1)[0];
+var xRange = [0, 100],
+    yRange = [0, 300];
 
-	var volumeByDate = ppr.dimension(function(d) {
-		return d.date;
-	});
-	
-	var volumeByDateGroup = volumeByDate.group().reduceCount(function(d) {
-		return d.date;
-	});
 
 	// configure the charts
 	yearRowChart
@@ -115,7 +86,7 @@ d3.csv("data/PPR-mini.csv", function(houseSales) {
 			return d.key + ' / ' + d.value;
 		})
 		.elasticX(true)
-		.xAxis().ticks(4);
+		.xAxis().ticks(0);
 
 	dayRowChart
 		.width(300)
@@ -124,14 +95,14 @@ d3.csv("data/PPR-mini.csv", function(houseSales) {
 		.group(countPerDay)
 		.colors(d3.scale.category10())
 		.label(function(d) {
-			return d.key.split('.')[1];
+			return d.key;
 		})
 		.title(function(d) {
-			return d.key.split('.')[1] + ' / ' + d.value;
+			return d.key + ' / ' + d.value;
 		})
 		.elasticX(true)
-		.xAxis().ticks(4);
-		
+		.xAxis().ticks(0);
+
 	monthRowChart
 		.width(300)
 		.height(350)
@@ -139,71 +110,65 @@ d3.csv("data/PPR-mini.csv", function(houseSales) {
 		.group(countPerMonth)
 		.colors(d3.scale.category10())
 		.label(function(d) {
-			return d.key.split('.')[1];
+			return d.key;
 		})
 		.title(function(d) {
-			return d.key.split('.')[1] + ' / ' + d.value;
+			return d.key + ' / ' + d.value;
 		})
 		.elasticX(true)
-		.xAxis().ticks(2);
+		.xAxis().ticks(0);
 
-	bubbleChart
-		.width(600)
-		.height(500)
-		.margins({
+bubbleChart
+	.dimension(countyDim)
+	.group(countyDimGroup)
+ //             .x(d3.time.scale()
+ //                   .domain([minDate, maxDate])
+  //                  .nice(d3.time.day)
+                    //.range(xRange))
+  //                  )
+	.x(d3.scale.linear().domain(xRange))
+	.y(d3.scale.linear().domain(yRange))
+	
+	.width(1000)
+    .height(500)
+    .margins({
 			top: 50,
 			right: 0,
 			bottom: 40,
 			left: 40
 		})
-		.dimension(countyDim)
-		.group(countyDimGroup)
-		.transitionDuration(750)
-		.colors(d3.scale.category10())
-		.x(d3.scale.linear().domain([25000, 450000]))
-		.y(d3.scale.linear().domain([0, 12000]))
-		.r(d3.scale.linear().domain([0, 5]))
-		.keyAccessor(function(p) {
-			return p.value.avg;
-		})
-		.valueAccessor(function(p) {
-			return p.value.count;
-		})
-		.radiusValueAccessor(function(p) {
-			return 0.5;
-		})
-		.transitionDuration(1500)
-		.elasticY(true)
-		.yAxisPadding(100)
-		.xAxisPadding(150)
-		.yAxisLabel("Number of Sales")
-		.xAxisLabel("Average Price")
-		.label(function(p) {
-			return p.key;
-		})
-		.title(function(d) {
-			return d.value.avg.toEuroAmount() + ' / ' + d.value.count;
-		})
-		.renderTitle(true)
-		.renderLabel(true);
+    .yAxisPadding(50)
+    .xAxisPadding(50)
+    .xAxisLabel('')
+    .yAxisLabel('')
+    .label(function (p) {
+        return p.value.label;
+    })
+    .renderLabel(true)
+    .title(function (p) {
+        
+        return [
+               "x: " + p.value.x,
+               "y: " + p.value.y,
+               "Bubble: " + p.value.bubble,
+               ]
+               .join("\n");
+    })
+    .renderTitle(false)
+    .renderHorizontalGridLines(false) // (optional) render horizontal grid lines, :default=false
+    .renderVerticalGridLines(false)
+    .maxBubbleRelativeSize(0.3)
+    .keyAccessor(function (p) {
 
-	countByDateBarChart
-		.width(600)
-		.height(400)
-		.margins({
-			top: 0,
-			right: 0,
-			bottom: 40,
-			left: 40
-		})
-		.dimension(volumeByDate)
-		.group(volumeByDateGroup)
-		.elasticY(true)
-		.elasticX(true)
-		.gap(85)
-		.x(d3.time.scale().domain([new Date(2010, 1, 1), new Date(2013, 12, 31)]))
-		.round(d3.time.month.round)
-		.xUnits(d3.time.months);
+        return p.value.x;
+    })
+    .valueAccessor(function (p) {
+        return p.value.y;
+    })
+    .radiusValueAccessor(function (p) {
+        return p.value.bubble;
+    });
+
 
 		// create a counter and bind it to the named element  
 		var all = ppr.groupAll();
@@ -234,11 +199,9 @@ d3.csv("data/PPR-mini.csv", function(houseSales) {
 // reset all charts
 function reset() {
 	bubbleChart.filterAll();
-	countByDateBarChart.filterAll();
 	yearRowChart.filterAll();
 	monthRowChart.filterAll();
 	dayRowChart.filterAll();
-	dataTable.filterAll();
 	dc.redrawAll();
 };
 
