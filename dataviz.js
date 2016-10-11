@@ -205,42 +205,6 @@ d3.csv("data/PPR-mini.csv", function(houseSales) {
 		.round(d3.time.month.round)
 		.xUnits(d3.time.months);
 
-	dataTable
-		.width(600)
-		.height(350)
-		.dimension(monthDim)
-		.group(function(d) {
-			return "";
-		})
-		.size(20)
-		.columns([
-			function(d) {
-				return d.dateAsString;
-			},
-			function(d) {
-				return d.price.toLocaleString();
-			},
-			function(d) {
-				return d.address;
-			},
-			function(d) {
-				return d.county;
-			},
-			function(d) {
-				return d.post_code;
-			},
-			function(d) {
-				return 'No' == d.not_full_market_price ? 'Yes' : 'No';
-			},
-			function(d) {
-				return d.vat_exclusive;
-			}
-		])
-		.sortBy(function(d) {
-			return d.date;
-		})
-		.order(d3.descending);
-
 		// create a counter and bind it to the named element  
 		var all = ppr.groupAll();
 		dc.dataCount("#info-data-count")
